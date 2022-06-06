@@ -19,7 +19,7 @@ Route::get('/', function () {
 
 Route::get('form',[\App\Http\Controllers\FileController::class,'index']);
 Route::post('file/upload',[\App\Http\Controllers\FileController::class,'store'])->name('store');
-
+Route::get('file/extract/{filename}',[\App\Http\Controllers\FileController::class,'extract']);
 
 //Auth::routes();
 //
