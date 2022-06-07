@@ -60,16 +60,11 @@ class FileController extends Controller
 
     public function extract($filename)
     {
-
-//        return phpinfo();
-
         $path = Storage::disk('local')->path('tmp/'.$filename);
 
         $file = gzopen($path, 'rb');
 
         $out_file = fopen(Storage::path('tmp/').'test.tar', 'wb');
-
-
 
         while (!gzeof($file)) {
             // Read buffer-size bytes
@@ -83,37 +78,52 @@ class FileController extends Controller
         $phar = new \PharData(Storage::disk('local')->path('tmp/test.tar'));
         $phar->extractTo( Storage::disk('local')->path('tmp/'));
 
-        $folders  = Storage::directories('tmp/KnowledgeBase');
+        $folders  = Storage::directories('tmp/fsl/');
 
 
 
         foreach($folders as $folder){
-            // spedire i file sulla webdav in base al nome delle directories
+           $files = Storage::disk('local')->files($folder);
+           $explode = explode('/', $folder);
+           $dir = $explode[2];
+            dump($folder, $files);
+            foreach ($files as $file) {
 
-            $files = Storage::files($folder);
+                Storage::disk('webdav')->writeStream('files/'.$dir.'/'.basename($file), Storage::disk('local')->readStream($file));
 
-            foreach ($files as $file){
-              //  $explode = explode('/',$file);
-
-                $full_path_source = Storage::disk('public')->getDriver()->getAdapter()->applyPathPrefix($file);
-
-                $full_path_dest = Storage::disk('webdav')->getDriver()->getAdapter()->applyPathPrefix('test');
-
-//                // make destination folder
-                if (!\Illuminate\Support\Facades\File::exists(dirname($full_path_dest))) {
-                    \Illuminate\Support\Facades\File::makeDirectory(dirname($full_path_dest), null, true);
-                }
-
-                \Illuminate\Support\Facades\File::move($full_path_source, $full_path_dest);
-                Storage::deleteDirectory('storage/app/tmp/KnowledgeBase');
+                // If you no longer need the originals
+                //Storage::disk($from)->delete($file);
             }
 
-
-          //  dump($files);
+      //      Storage::disk('public')->deleteDirectory($directory);
         }
 
-        // TO DO cancellare il file test.rar
-        // TO DO cancellare la kartella KnoledgeBase
+
+
+//        foreach($folders as $folder){
+//            // spedire i file sulla webdav in base al nome delle directories
+//
+//            $files = Storage::files($folder);
+//
+//            foreach ($files as $file){
+//
+//                $full_path_source = Storage::disk('public')->getDriver()->getAdapter()->applyPathPrefix($file);
+//
+//                $full_path_dest = Storage::disk('webdav')->getDriver()->getAdapter()->applyPathPrefix('files');
+//
+//               // dump($full_path_source . ' - ' . $full_path_dest);
+//
+//                // make destination folder
+//                if (!\Illuminate\Support\Facades\File::exists(dirname($full_path_dest))) {
+//                    \Illuminate\Support\Facades\File::makeDirectory(dirname($full_path_dest), null, true);
+//                }
+//
+//                \Illuminate\Support\Facades\File::move($full_path_source, $full_path_dest);
+//            }
+//
+//
+//            dump($files);
+//        }
 
     }
 }
