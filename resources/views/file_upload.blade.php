@@ -54,10 +54,11 @@
         target: '{{ route('store') }}',
         query:{_token:'{{ csrf_token() }}'} ,// CSRF token
        // fileType: ['*'],
-        chunkSize: 10*1024*1024, // default is 1*1024*1024, this should be less than your maximum limit in php.ini
+        chunkSize: 20*1024*1024, // default is 1*1024*1024, this should be less than your maximum limit in php.ini
         headers: {
             'Accept' : 'application/json'
         },
+        simultaneousUploads: 1,
         testChunks: false,
         throttleProgressCallbacks: 1,
     });

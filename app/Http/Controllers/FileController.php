@@ -23,6 +23,7 @@ class FileController extends Controller
      */
     public function store(Request $request)
     {
+        ini_set('max_execution_time', 90);
         $receiver = new FileReceiver('file', $request, HandlerFactory::classFromRequest($request));
 
         if (!$receiver->isUploaded()) {
@@ -31,6 +32,7 @@ class FileController extends Controller
 
         $fileReceived = $receiver->receive(); // receive file
         if ($fileReceived->isFinished()) { // file uploading is complete / all chunks are uploaded
+
             $file = $fileReceived->getFile(); // get file
             $extension = $file->getClientOriginalExtension();
             $fileName = str_replace('.'.$extension, '', $file->getClientOriginalName()); //file name without extenstion
@@ -60,83 +62,71 @@ class FileController extends Controller
 
     public function extract($filename)
     {
-        $path = Storage::disk('local')->path('tmp/'.$filename);
+        ini_set('max_execution_time', 600);
+        $localDisk = Storage::disk('local');
+        $webdavDisk = Storage::disk('webdav');
 
-        $file = gzopen($path, 'rb');
+        $this->debugWithDate('Inizio la decompressione');
 
-        $out_file = fopen(Storage::path('tmp/').'test.tar', 'wb');
+        /**
+         * Tolgo la compressione al file gz
+         */
+        $compressedTarFilePath = $localDisk->path('tmp/'.$filename);
+        $compressedTarFileDescriptor = gzopen($compressedTarFilePath, 'rb');
+        $tarFileDescriptor = fopen($localDisk->path('tmp/').'decompressed.tar', 'wb');
 
-        while (!gzeof($file)) {
-            // Read buffer-size bytes
-            // Both fwrite and gzread and binary-safe
-            fwrite($out_file, gzread($file, 4096));
-        }
+        stream_copy_to_stream($compressedTarFileDescriptor, $tarFileDescriptor);
 
-        fclose($out_file);
-        gzclose($file);
+        fclose($tarFileDescriptor);
+        gzclose($compressedTarFileDescriptor);
 
-        $phar = new \PharData(Storage::disk('local')->path('tmp/test.tar'));
-        $phar->extractTo( Storage::disk('local')->path('tmp/'));
+        $this->debugWithDate('Decompressione terminata. Inizio l\'estrazione');
 
-        $folders  = Storage::directories('tmp/fsl/');
+        /**
+         * Estraggo il tar decompresso in una cartella temporanea
+         */
+        $localDisk->deleteDirectory('tmp/fsl');
+        $tarFile = new \PharData($localDisk->path('tmp/decompressed.tar'));
+        $tarFile->extractTo( $localDisk->path('tmp/'));
 
+        $this->debugWithDate('Finita l\'estrazione inizio il caricamento in webdav');
 
-
+        /*
+         * Per ogni cartella, vado a caricare i file con webdav
+         */
+        $folders  = $localDisk->directories('tmp/fsl/');
         foreach($folders as $folder){
-           $files = Storage::disk('local')->files($folder);
-           $explode = explode('/', $folder);
-           $dir = $explode[2];
-            dump($folder, $files);
+            $files = $localDisk->files($folder);
+            $explode = explode('/', $folder);
+            $dir = $explode[2];
+
             foreach ($files as $file) {
+                $savePath = 'files/' . $dir . '/' . basename($file);
+                $fileExistsInWebdav = $webdavDisk->exists($savePath);
+                if($fileExistsInWebdav) {
+                    $webdavDisk->delete($savePath);
+                }
 
-                Storage::disk('webdav')->writeStream('files/'.$dir.'/'.basename($file), Storage::disk('local')->readStream($file));
-
-                // If you no longer need the originals
-                //Storage::disk($from)->delete($file);
+                $webdavDisk->writeStream($savePath, $localDisk->readStream($file));
             }
 
-      //      Storage::disk('public')->deleteDirectory($directory);
         }
 
+        /**
+         * Elimino i file non più necessari
+         */
+        $this->debugWithDate('Terminato il caricamento, elimino i file non più necessari');
+
+        /*
+         * unset è necessaria perchè phardata non chiude il descrittore fino a che non viene terminato lo script, in questo modo lo chiudo brutalmente
+         */
+        unset($tarFile);
+        $localDisk->deleteDirectory('tmp');
+    }
 
 
-//        foreach($folders as $folder){
-//            // spedire i file sulla webdav in base al nome delle directories
-//
-//            $files = Storage::files($folder);
-//
-//            foreach ($files as $file){
-//
-//                $full_path_source = Storage::disk('public')->getDriver()->getAdapter()->applyPathPrefix($file);
-//
-//                $full_path_dest = Storage::disk('webdav')->getDriver()->getAdapter()->applyPathPrefix('files');
-//
-//               // dump($full_path_source . ' - ' . $full_path_dest);
-//
-//                // make destination folder
-//                if (!\Illuminate\Support\Facades\File::exists(dirname($full_path_dest))) {
-//                    \Illuminate\Support\Facades\File::makeDirectory(dirname($full_path_dest), null, true);
-//                }
-//
-//                \Illuminate\Support\Facades\File::move($full_path_source, $full_path_dest);
-//            }
-//
-//
-//            dump($files);
-//        }
-
+    private function debugWithDate($text) {
+        dump(date('H:i:s').': '.$text);
     }
 }
-
-
-//        $file = $request->file('file');
-//        dd($file);
-//        exit();
-//        $decompressed = gzdecode($request->getContent());
-//        dd($decompressed);
-//        $file = $request->file('file')->getClientOriginalName();
-//
-//        $request->file('file')->storeAs('gyala',$file,'webdav');
-//
-//        return response()->json('success');
 
