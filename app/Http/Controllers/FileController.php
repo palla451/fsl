@@ -67,7 +67,7 @@ class FileController extends Controller
         $webdavDisk = Storage::disk('webdav');
 
         $this->debugWithDate('Inizio la decompressione');
-        
+
         /**
          * Tolgo la compressione al file gz
          */
@@ -90,32 +90,33 @@ class FileController extends Controller
         $tarFile->extractTo( $localDisk->path('tmp/'));
 
         $this->debugWithDate('Finita l\'estrazione inizio il caricamento in webdav');
-//
-//        /*
-//         * Per ogni cartella, vado a caricare i file con webdav
-//         */
-//        $folders  = $localDisk->directories('tmp/fsl/');
-//        foreach($folders as $folder){
-//            $files = $localDisk->files($folder);
-//            $explode = explode('/', $folder);
-//            $dir = $explode[2];
-//
-//            foreach ($files as $file) {
-//                $savePath = 'files/' . $dir . '/' . basename($file);
-//                $fileExistsInWebdav = $webdavDisk->exists($savePath);
-//                if($fileExistsInWebdav) {
-//                    $webdavDisk->delete($savePath);
-//                }
-//
-//                $webdavDisk->writeStream($savePath, $localDisk->readStream($file));
-//            }
-//
-//        }
+
+        /*
+         * Per ogni cartella, vado a caricare i file con webdav
+         */
+        $folders  = $localDisk->directories('tmp/fsl/');
+        foreach($folders as $folder){
+            $files = $localDisk->files($folder);
+            $explode = explode('/', $folder);
+            $dir = $explode[2];
+
+            foreach ($files as $file) {
+                $savePath = 'files/' . $dir . '/' . basename($file);
+                $fileExistsInWebdav = $webdavDisk->exists($savePath);
+                if($fileExistsInWebdav) {
+                    $webdavDisk->delete($savePath);
+                }
+
+                $webdavDisk->writeStream($savePath, $localDisk->readStream($file));
+            }
+
+        }
 
         /**
          * Elimino i file non più necessari
          */
         $this->debugWithDate('Terminato il caricamento, elimino i file non più necessari');
+
         /*
          * unset è necessaria perchè phardata non chiude il descrittore fino a che non viene terminato lo script, in questo modo lo chiudo brutalmente
          */
