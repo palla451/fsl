@@ -13,7 +13,8 @@
         "laravel/tinker": "^2.5",
         "laravel/ui": "^3.4",
         "pbmedia/laravel-webdav": "^1.11",
-        "pion/laravel-chunk-upload": "^1.5"
+        "pion/laravel-chunk-upload": "^1.5",
+        "spatie/crypto": "^2.0"
     },
     "require-dev": {
         "facade/ignition": "^2.5",

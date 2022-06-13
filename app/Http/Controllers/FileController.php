@@ -10,9 +10,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Pion\Laravel\ChunkUpload\Handler\HandlerFactory;
 use Pion\Laravel\ChunkUpload\Receiver\FileReceiver;
+use Spatie\Crypto\Rsa\KeyPair;
+use Spatie\Crypto\Rsa\PrivateKey;
+use Spatie\Crypto\Rsa\PublicKey;
 
 class FileController extends Controller
 {
+
+
     public function index()
     {
         return view('file_upload');
@@ -85,7 +90,7 @@ class FileController extends Controller
         /**
          * Estraggo il tar decompresso in una cartella temporanea
          */
-        $localDisk->deleteDirectory('tmp/fsl');
+        $localDisk->deleteDirectory('tmp/KnowledgeBase');
         $tarFile = new \PharData($localDisk->path('tmp/decompressed.tar'));
         $tarFile->extractTo( $localDisk->path('tmp/'));
 
@@ -94,7 +99,7 @@ class FileController extends Controller
         /*
          * Per ogni cartella, vado a caricare i file con webdav
          */
-        $folders  = $localDisk->directories('tmp/fsl/');
+        $folders  = $localDisk->directories('tmp/KnowledgeBase/');
         foreach($folders as $folder){
             $files = $localDisk->files($folder);
             $explode = explode('/', $folder);
@@ -121,12 +126,61 @@ class FileController extends Controller
          * unset è necessaria perchè phardata non chiude il descrittore fino a che non viene terminato lo script, in questo modo lo chiudo brutalmente
          */
         unset($tarFile);
-        $localDisk->deleteDirectory('tmp');
+      //  $localDisk->deleteDirectory('tmp');
     }
 
 
     private function debugWithDate($text) {
         dump(date('H:i:s').': '.$text);
+    }
+
+    public function certificate()
+    {
+        $source = 'signed';
+        echo "Source: $source";
+        $fp=fopen(Storage::path('tmp/public.crt'),"r");
+        $pub_key=fread($fp,8192);
+
+        $publicKey = "-----BEGIN PUBLIC KEY-----\n" . wordwrap($pub_key, 64, "\n", true) . "\n-----END PUBLIC KEY-----";
+
+        $str = "str to be encrypted";
+
+        $opensslPublicEncrypt = openssl_public_encrypt($str, $encrypted, $publicKey);
+
+        fclose($fp);
+        exit();
+        openssl_get_publickey($pub_key);
+        /*
+        * NOTE:  Here you use the $pub_key value (converted, I guess)
+        */
+        openssl_public_encrypt($source,$crypttext,$pub_key);
+        echo "String crypted: $crypttext";
+
+        $fp=fopen("/path/to/private.key","r");
+        $priv_key=fread($fp,8192);
+        fclose($fp);
+        $passphrase ='test';
+// $passphrase is required if your key is encoded (suggested)
+        $res = openssl_get_privatekey($priv_key,$passphrase);
+        /*
+        * NOTE:  Here you use the returned resource value
+        */
+        openssl_private_decrypt($crypttext,$newsource,$res);
+        echo "String decrypt : $newsource";
+    }
+
+    public function encrypt() {
+
+        $publicKey = Storage::path('tmp/id_rsa');
+        $key = wordwrap($publicKey, 65, "\n", true);
+        $plaintext = "String to encrypt";
+
+        $pubKey = openssl_pkey_get_public($publicKey);
+
+        openssl_public_encrypt($plaintext, $encrypted, $pubKey);
+
+        echo $encrypted;   //encrypted string
+
     }
 }
 
